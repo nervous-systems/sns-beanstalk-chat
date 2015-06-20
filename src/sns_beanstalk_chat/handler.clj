@@ -25,7 +25,6 @@
       (assoc :body (-> body
                        (io/reader :encoding "UTF-8")
                        (json/parse-stream true)))
-      (update :body json/parse-stream true)
       handle-sns-request))
 
 (defn handle-topic-get [{:keys [topic-mult] :as req}]
