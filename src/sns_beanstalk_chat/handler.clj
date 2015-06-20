@@ -60,5 +60,5 @@
     (let [internal-ip (instance-data/retrieve!! :local-ipv4)
           events      (async/chan)]
       (http/run-server (make-internal-app events)
-                       {:port 8080 :ip internal-ip})
-      (subscribe-sns!! creds internal-ip topic))))
+                       {:port 8080 :ip internal-ip}))
+    (subscribe-sns!! creds internal-ip topic)))
