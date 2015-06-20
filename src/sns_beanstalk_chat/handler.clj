@@ -19,6 +19,7 @@
   (async/put! topic-chan (:Message body)))
 
 (defn handle-topic-post [req]
+  (log/info req)
   (-> req
       (update :body json/decode true)
       handle-sns-request))
@@ -54,8 +55,9 @@
 (defn -main [& [topic]]
   (let [topic    (or topic :sns-demo-events)
         iam-role (instance-data/default-iam-role!!)
-        current  (atom {})
-        creds    {:eulalie/type :sessioned :current current}]
+        current  (atom (instance-data/iam-credentials!! iam-role))
+        creds    {:eulalie/type :refresh :current current}]
+    (log/info (pr-str {:event :start :data {:role iam-role :creds creds :topic topic}}))
     (eulalie.creds/periodically-refresh! current iam-role)
     (let [internal-ip (instance-data/retrieve!! :local-ipv4)
           events      (async/chan)]
