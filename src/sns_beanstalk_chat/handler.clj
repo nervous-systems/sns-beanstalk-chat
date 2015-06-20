@@ -12,7 +12,7 @@
   (:gen-class))
 
 (defmulti handle-sns-request
-  (fn [{{:keys [x-amz-sns-message-type]} :headers}]
+  (fn [{{:strs [x-amz-sns-message-type]} :headers}]
     x-amz-sns-message-type))
 (defmethod handle-sns-request "SubscriptionConfirmation" [{:keys [body]}]
   (-> body :SubscribeURL http.client/get))
