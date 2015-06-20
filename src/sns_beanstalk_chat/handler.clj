@@ -1,13 +1,14 @@
 (ns sns-beanstalk-chat.handler
-  (:require [compojure.core :as cj]
-            [org.httpkit.server :as http]
-            [clojure.tools.logging :as log]
-            [org.httpkit.client :as http.client]
+  (:require [cheshire.core :as json]
             [clojure.core.async :as async :refer [go <! >!]]
-            [fink-nottle.sns :as sns]
-            [eulalie.instance-data :as instance-data]
+            [clojure.java.io :as io]
+            [clojure.tools.logging :as log]
+            [compojure.core :as cj]
             [eulalie.creds]
-            [cheshire.core :as json])
+            [eulalie.instance-data :as instance-data]
+            [fink-nottle.sns :as sns]
+            [org.httpkit.client :as http.client]
+            [org.httpkit.server :as http])
   (:gen-class))
 
 (defmulti handle-sns-request
@@ -18,9 +19,12 @@
 (defmethod handle-sns-request "Message" [{:keys [body topic-chan]}]
   (async/put! topic-chan (:Message body)))
 
-(defn handle-topic-post [req]
+(defn handle-topic-post [{:keys [body] :as req}]
   (log/info req)
   (-> req
+      (assoc :body (-> body
+                       (io/reader :encoding "UTF-8")
+                       (json/parse-stream true)))
       (update :body json/parse-stream true)
       handle-sns-request))
 
