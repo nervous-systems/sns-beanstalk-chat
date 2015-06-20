@@ -59,8 +59,7 @@
         creds    {:eulalie/type :refresh :current current}]
     (log/info (pr-str {:event :start :data {:role iam-role :creds creds :topic topic}}))
     (eulalie.creds/periodically-refresh! current iam-role)
-    (let [internal-ip (instance-data/retrieve!! :local-ipv4)
+    (let [hostname (instance-data/retrieve!! :public-hostname)
           events      (async/chan)]
-      (http/run-server (make-internal-app events)
-                       {:port 8080 :ip internal-ip}))
-    (subscribe-sns!! creds internal-ip topic)))
+      (http/run-server (make-internal-app events) {:port 8080})
+      (subscribe-sns!! creds hostname topic))))
