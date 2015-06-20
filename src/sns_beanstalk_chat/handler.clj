@@ -14,13 +14,14 @@
 (defmulti handle-sns-request
   (fn [{{:strs [x-amz-sns-message-type]} :headers}]
     x-amz-sns-message-type))
-(defmethod handle-sns-request "SubscriptionConfirmation" [{:keys [body]}]
+(defmethod handle-sns-request "SubscriptionConfirmation" [{:keys [body] :as req}]
+  (clojure.pprint/pprint req)
   (-> body :SubscribeURL http.client/get))
-(defmethod handle-sns-request "Message" [{:keys [body topic-chan]}]
+(defmethod handle-sns-request "Message" [{:keys [body topic-chan] :as req}]
+  (clojure.pprint/pprint req)
   (async/put! topic-chan (:Message body)))
 
 (defn handle-topic-post [{:keys [body] :as req}]
-  (log/info req)
   (-> req
       (assoc :body (-> body
                        (io/reader :encoding "UTF-8")
@@ -33,18 +34,20 @@
     (http/with-channel req handle
       (async/go-loop []
         (when-let [value (<! out-chan)]
-          (when (http/send! handle value)
-            (recur)))))))
+          (if (http/send! handle value)
+            (recur)
+            (async/close! out-chan)))))))
 
 (defn topic-middleware [handler topic mult]
   (fn [req] (handler (assoc req
                             :topic-chan topic
                             :topic-mult mult))))
 
-(defn make-internal-app [channel]
+(defn make-app [channel]
   (->
    (cj/routes
-    (cj/POST "/topic/events" [] handle-topic-post))
+    (cj/POST "/topic/events" [] handle-topic-post)
+    (cj/GET  "/topic/events" [] handle-topic-get))
    (topic-middleware channel (async/mult channel))))
 
 (defn subscribe-sns!! [creds this-address topic-name]
@@ -64,5 +67,5 @@
     (eulalie.creds/periodically-refresh! current iam-role)
     (let [hostname (instance-data/retrieve!! :public-hostname)
           events      (async/chan)]
-      (http/run-server (make-internal-app events) {:port 80})
+      (http/run-server (make-app events) {:port 80})
       (subscribe-sns!! creds hostname topic))))
