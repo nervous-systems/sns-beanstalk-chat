@@ -21,7 +21,7 @@
 (defn handle-topic-post [req]
   (log/info req)
   (-> req
-      (update :body json/decode true)
+      (update :body json/parse-stream true)
       handle-sns-request))
 
 (defn handle-topic-get [{:keys [topic-mult] :as req}]
@@ -61,5 +61,5 @@
     (eulalie.creds/periodically-refresh! current iam-role)
     (let [hostname (instance-data/retrieve!! :public-hostname)
           events      (async/chan)]
-      (http/run-server (make-internal-app events) {:port 8080})
+      (http/run-server (make-internal-app events) {:port 80})
       (subscribe-sns!! creds hostname topic))))
