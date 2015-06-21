@@ -7,65 +7,73 @@
             [eulalie.creds]
             [eulalie.instance-data :as instance-data]
             [fink-nottle.sns :as sns]
+            [fink-nottle.sns.consume :as sns.consume]
             [org.httpkit.client :as http.client]
             [org.httpkit.server :as http])
   (:gen-class))
 
-(defmulti handle-sns-request
-  (fn [{{:strs [x-amz-sns-message-type]} :headers}]
-    x-amz-sns-message-type))
-(defmethod handle-sns-request "SubscriptionConfirmation" [{:keys [body] :as req}]
-  (clojure.pprint/pprint req)
-  (-> body :SubscribeURL http.client/get))
-(defmethod handle-sns-request "Message" [{:keys [body topic-chan] :as req}]
-  (clojure.pprint/pprint req)
-  (async/put! topic-chan (:Message body)))
+(defn make-post-handler [{region :region} {chan :sns-incoming}]
+  (fn [{:keys [body] :as req}]
+    (go
+      (let [{:keys [type] :as m} (sns.consume/stream->message body)]
+        (when (<! (sns.consume/verify-message! m region))
+          (http/close req)
+          (case type
+            :subscription-confirmation (http.client/get (:subscribe-url m))
+            :message (async/put! chan (:message m))))))))
 
-(defn handle-topic-post [{:keys [body] :as req}]
-  (-> req
-      (assoc :body (-> body
-                       (io/reader :encoding "UTF-8")
-                       (json/parse-stream true)))
-      handle-sns-request))
+(defn make-get-handler [_ {mult :sns-incoming-mult out-chan :sns-outgoing}]
+  (fn [req]
+    (let [to-client (async/chan)]
+      (async/tap mult to-client)
+      (http/with-channel req handle
+        (http/on-receive handle #(async/put! out-chan %))
+        (async/go-loop []
+          (when-let [value (<! to-client)]
+            (if (http/send! handle value)
+              (recur)
+              (async/close! to-client))))))))
 
-(defn handle-topic-get [{:keys [topic-mult] :as req}]
-  (let [out-chan (async/chan)]
-    (async/tap topic-mult out-chan)
-    (http/with-channel req handle
-      (async/go-loop []
-        (when-let [value (<! out-chan)]
-          (if (http/send! handle value)
-            (recur)
-            (async/close! out-chan)))))))
+(defn make-app [config state]
+  (cj/routes
+   (cj/POST "/topic/events" [] (make-post-handler config state))
+   (cj/GET  "/topic/events" [] (make-get-handler  config state))))
 
-(defn topic-middleware [handler topic mult]
-  (fn [req] (handler (assoc req
-                            :topic-chan topic
-                            :topic-mult mult))))
-
-(defn make-app [channel]
-  (->
-   (cj/routes
-    (cj/POST "/topic/events" [] handle-topic-post)
-    (cj/GET  "/topic/events" [] handle-topic-get))
-   (topic-middleware channel (async/mult channel))))
+(defn sns-publish! [creds topic-arn msg-chan]
+  (async/go-loop []
+    (when-let [message (<! msg-chan)]
+      (<! (sns/publish-topic! creds topic-arn message))
+      (recur))))
 
 (defn subscribe-sns!! [creds this-address topic-name]
   (let [topic-arn  (sns/create-topic!! creds topic-name)
-        endpoint   (str "http://" this-address "/topic/events")
-        subs-arn   (sns/subscribe!! creds topic-arn :http endpoint)]
-    (log/info (pr-str {:event :subscribe-sns
-                       :data [topic-arn endpoint subs-arn]}))
-    subs-arn))
+        endpoint   (str "http://" this-address "/topic/events")]
+    {:topic-arn topic-arn
+     :subscription-arn (sns/subscribe!! creds topic-arn :http endpoint)}))
+
+(defn get-creds!! []
+  (let [iam-role (instance-data/default-iam-role!!)
+        current  (atom (instance-data/iam-credentials!! iam-role))
+        creds    {:eulalie/type :refresh :current current}]
+    (eulalie.creds/periodically-refresh! current iam-role)
+    creds))
 
 (defn -main [& [topic]]
   (let [topic    (or topic :sns-demo-events)
-        iam-role (instance-data/default-iam-role!!)
-        current  (atom (instance-data/iam-credentials!! iam-role))
-        creds    {:eulalie/type :refresh :current current}]
-    (log/info (pr-str {:event :start :data {:role iam-role :creds creds :topic topic}}))
-    (eulalie.creds/periodically-refresh! current iam-role)
-    (let [hostname (instance-data/retrieve!! :public-hostname)
-          events      (async/chan)]
-      (http/run-server (make-app events) {:port 80})
-      (subscribe-sns!! creds hostname topic))))
+        creds    (get-creds!!)
+        sns-incoming (async/chan)
+        sns-outgoing (async/chan)]
+
+    (http/run-server
+     (make-app
+      {:topic topic :region (instance-data/identity-key!! :region)}
+      {:creds creds
+       :sns-incoming-mult (async/mult sns-incoming)
+       :sns-incoming sns-incoming
+       :sns-outgoing sns-outgoing}
+      {:port 80}))
+
+    (let [{:keys [topic-arn]}
+          (subscribe-sns!!
+           creds (instance-data/meta-data!! :public-hostname) topic)]
+      (sns-publish! creds topic-arn sns-outgoing))))
