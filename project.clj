@@ -3,7 +3,7 @@
   :aot [sns-beanstalk-chat.handler]
   :main sns-beanstalk-chat.handler
   :plugins [[com.palletops/uberimage "0.4.1"]]
-  :uberimage {:tag "nervoussystems/sns-web-chat:latest"}
+  :uberimage {:tag "nervoussystems/sns-web-chat:0.1.0"}
   :dependencies [[org.clojure/clojure        "1.7.0-beta2"]
                  [org.clojure/core.async     "0.1.346.0-17112a-alpha"]
                  [org.clojure/tools.logging  "0.3.1"]

@@ -28,7 +28,11 @@
     (let [to-client (async/chan)]
       (async/tap mult to-client)
       (http/with-channel req handle
-        (http/on-receive handle #(async/put! out-chan %))
+        (http/on-receive
+         handle (fn [message]
+                  (let [[tag body] (json/decode message)]
+                    (if (= tag "message")
+                      (async/put! out-chan body)))))
         (async/go-loop []
           (when-let [value (<! to-client)]
             (if (http/send! handle value)
@@ -72,7 +76,7 @@
        :sns-incoming-mult (async/mult sns-incoming)
        :sns-incoming sns-incoming
        :sns-outgoing sns-outgoing})
-     {:port 80})
+     {:port 8080})
 
     (let [{:keys [topic-arn]}
           (subscribe-sns!!
