@@ -16,6 +16,7 @@
   (fn [{:keys [body] :as req}]
     (go
       (let [{:keys [type] :as m} (sns.consume/stream->message body)]
+        (log/info (pr-str {:event :sns-receive :data m}))
         (when (<! (sns.consume/verify-message! m region))
           (http/close req)
           (case type
@@ -70,8 +71,8 @@
       {:creds creds
        :sns-incoming-mult (async/mult sns-incoming)
        :sns-incoming sns-incoming
-       :sns-outgoing sns-outgoing}
-      {:port 80}))
+       :sns-outgoing sns-outgoing})
+     {:port 80})
 
     (let [{:keys [topic-arn]}
           (subscribe-sns!!
