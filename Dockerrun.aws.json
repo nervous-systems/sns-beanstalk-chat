@@ -1,0 +1,4 @@
+{"AWSEBDockerrunVersion": "1",
+ "Image": {"Name": "nervoussystems/sns-web-chat:0.1.1",
+           "Update": "true"},
+ "Ports": [{"ContainerPort": "8080"}]}
