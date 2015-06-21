@@ -1,12 +1,4 @@
-var ws = new WebSocket('ws://ec2-54-157-230-140.compute-1.amazonaws.com/topic/events');
-
-function disable_form() {
-    document.getElementById('form').style.opacity = 0.5;
-}
-
-function enable_form() {
-    document.getElementById('form').style.opacity = 1;
-}
+var ws = new WebSocket('ws://sns-beanstalk-chat.elasticbeanstalk.com/topic/events');
 
 ws.onerror = function(e) {
     console.log(e)
@@ -29,14 +21,27 @@ ws.onmessage = function(m) {
 }
 
 ws.onopen = function(e) {
+    setInterval(
+        function() {
+            console.log('Heartbeat!');
+            ws.send(JSON.stringify(["heartbeat"]));
+        }, 30 * 1000);
     enable_form();
+}
+
+function disable_form() {
+    document.getElementById('form').style.opacity = 0.5;
+}
+
+function enable_form() {
+    document.getElementById('form').style.opacity = 1;
 }
 
 function send() {
     var elem = document.getElementById('text');
     var msg = elem.value;
     if(0 < msg.length) {
-        ws.send(msg);
+        ws.send(JSON.stringify(["message", msg]));
     }
     elem.value = '';
     elem.focus();

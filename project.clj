@@ -1,9 +1,9 @@
-(defproject io.nervous/sns-beanstalk-chat "0.1.0-SNAPSHOT"
+(defproject io.nervous/sns-beanstalk-chat "0.1.1-SNAPSHOT"
   :license {:name "Unlicense" :url "http://unlicense.org/UNLICENSE"}
   :aot [sns-beanstalk-chat.handler]
   :main sns-beanstalk-chat.handler
   :plugins [[com.palletops/uberimage "0.4.1"]]
-  :uberimage {:tag "nervoussystems/sns-web-chat:0.1.0"}
+  :uberimage {:tag "nervoussystems/sns-web-chat:0.1.1"}
   :dependencies [[org.clojure/clojure        "1.7.0-beta2"]
                  [org.clojure/core.async     "0.1.346.0-17112a-alpha"]
                  [org.clojure/tools.logging  "0.3.1"]
