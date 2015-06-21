@@ -18,10 +18,10 @@
       (let [{:keys [type] :as m} (sns.consume/stream->message body)]
         (log/info (pr-str {:event :sns-receive :data m}))
         (when (<! (sns.consume/verify-message! m region))
-          (http/close req)
           (case type
             :subscription-confirmation (http.client/get (:subscribe-url m))
-            :message (async/put! chan (:message m))))))))
+            :message (async/put! chan (:message m)))
+          nil)))))
 
 (defn make-get-handler [_ {mult :sns-incoming-mult out-chan :sns-outgoing}]
   (fn [req]
