@@ -1,0 +1,18 @@
+<html>
+  <head>
+    <script type="text/javascript" src="index.js"></script>
+    <style type="text/css">
+      body, input, button { font-family: monospace; font-size: 12px; }
+      #messages li { max-width: 400px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; list-style-type: none; }
+      #messages { padding: 10px }
+      input { width: 200px; margin-right: 4px; }
+    </style>
+  </head>
+  <body onload="document.getElementById('text').focus()">
+    <form onsubmit="send(); return false" id="form" style="opacity: 0.5">
+      <input type="text" id="text" /><button>Send</button>
+    </form>
+    <ul id="messages">
+    </ul>
+  </body>
+  </html>
