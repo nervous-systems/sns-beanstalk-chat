@@ -1,4 +1,4 @@
-var ws = new WebSocket('ws://sns-beanstalk-chat.elasticbeanstalk.com/topic/events');
+var ws = new WebSocket('wss://sns-beanstalk-chat.nervous.io/topic/events');
 
 ws.onerror = function(e) {
     console.log(e)
@@ -23,7 +23,6 @@ ws.onmessage = function(m) {
 ws.onopen = function(e) {
     setInterval(
         function() {
-            console.log('Heartbeat!');
             ws.send(JSON.stringify(["heartbeat"]));
         }, 30 * 1000);
     enable_form();
